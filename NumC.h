@@ -19,7 +19,7 @@
  *
  *  1. 单文件使用 (Single file usage):
  *     #define NC_IMPLEMENTATION
- *     #include "NumC.h"
+ *     #include "../NumC.h"
  *
  *  2. 编译 (Compile):
  *     gcc -o program program.c -lm
@@ -32,7 +32,7 @@
  *  Example 1: Basic array creation and operations
  *
  *      #define NC_IMPLEMENTATION
- *      #include "NumC.h"
+ *      #include "../NumC.h"
  *      #include <stdio.h>
  *
  *      int main() {

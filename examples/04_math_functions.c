@@ -1,5 +1,5 @@
 #define NC_IMPLEMENTATION
-#include "NumC.h"
+#include "../NumC.h"
 #include <stdio.h>
 #include <math.h>
 

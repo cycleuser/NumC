@@ -28,7 +28,7 @@ gcc -o program program.c -lm
 
 ```c
 #define NC_IMPLEMENTATION
-#include "NumC.h"
+#include "../NumC.h"
 #include <stdio.h>
 
 int main() {
@@ -105,7 +105,7 @@ gcc -o program program.c -lm
 
 # Or define macro before include
 #define NC_IMPLEMENTATION
-#include "NumC.h"
+#include "../NumC.h"
 ```
 
 ## License
