@@ -1,0 +1,5 @@
+add_executable(example_simple
+    simple.c
+)
+
+target_link_libraries(example_simple numc)
