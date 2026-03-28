@@ -6,6 +6,8 @@
 #include <complex.h>
 #include <ctype.h>
 #include <time.h>
+#include <stdarg.h>
+#include <float.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -2488,4 +2490,260 @@ bool nc_shape_equals(NCArray *a, NCArray *b) {
         if (a->shape[i] != b->shape[i]) return false;
     }
     return true;
+}
+
+static double nc_va_arg_double(va_list *ap, NCDataType dtype) {
+    switch (dtype) {
+        case NC_BOOL: return (double)va_arg(*ap, int);
+        case NC_INT8: return (double)va_arg(*ap, int);
+        case NC_INT16: return (double)va_arg(*ap, int);
+        case NC_INT32: return (double)va_arg(*ap, int);
+        case NC_INT64: return (double)va_arg(*ap, long long);
+        case NC_UINT8: return (double)va_arg(*ap, unsigned int);
+        case NC_UINT16: return (double)va_arg(*ap, unsigned int);
+        case NC_UINT32: return (double)va_arg(*ap, unsigned int);
+        case NC_UINT64: return (double)va_arg(*ap, unsigned long long);
+        case NC_FLOAT32: return (double)va_arg(*ap, double);
+        case NC_FLOAT64: return va_arg(*ap, double);
+        default: return 0.0;
+    }
+}
+
+NCArray *nc_make_1d(NCDataType dtype, int64_t n, ...) {
+    if (n <= 0) return nc_empty(1, (int64_t[]){0}, dtype);
+    
+    int64_t shape[1] = {n};
+    NCArray *arr = nc_empty(1, shape, dtype);
+    if (!arr) return NULL;
+    
+    va_list args;
+    va_start(args, n);
+    
+    for (int64_t i = 0; i < n; i++) {
+        double v = nc_va_arg_double(&args, dtype);
+        nc_set_value_from_double(arr, i, v);
+    }
+    
+    va_end(args);
+    return arr;
+}
+
+NCArray *nc_make_2d(NCDataType dtype, int64_t rows, int64_t cols, ...) {
+    if (rows <= 0 || cols <= 0) {
+        return nc_empty(2, (int64_t[]){rows, cols}, dtype);
+    }
+    
+    int64_t shape[2] = {rows, cols};
+    NCArray *arr = nc_empty(2, shape, dtype);
+    if (!arr) return NULL;
+    
+    va_list args;
+    va_start(args, cols);
+    
+    for (int64_t i = 0; i < rows; i++) {
+        for (int64_t j = 0; j < cols; j++) {
+            double v = nc_va_arg_double(&args, dtype);
+            int64_t idx = i * cols + j;
+            nc_set_value_from_double(arr, idx, v);
+        }
+    }
+    
+    va_end(args);
+    return arr;
+}
+
+NCArray *nc_make_1d_auto(int n, ...) {
+    if (n <= 0) return nc_empty(1, (int64_t[]){0}, NC_INT64);
+    
+    NCDataType dtype = NC_INT64;
+    bool all_positive = true;
+    bool fits_int32 = true;
+    bool fits_int16 = true;
+    bool fits_int8 = true;
+    
+    va_list args, args_copy;
+    va_start(args, n);
+    va_copy(args_copy, args);
+    
+    for (int i = 0; i < n; i++) {
+        int64_t v = va_arg(args, int64_t);
+        if (v < 0) all_positive = false;
+        if (v > INT32_MAX || v < INT32_MIN) fits_int32 = false;
+        if (v > INT16_MAX || v < INT16_MIN) fits_int16 = false;
+        if (v > INT8_MAX || v < INT8_MIN) fits_int8 = false;
+    }
+    va_end(args);
+    
+    if (all_positive) {
+        bool fits_uint32 = true;
+        bool fits_uint16 = true;
+        bool fits_uint8 = true;
+        
+        va_start(args_copy, n);
+        for (int i = 0; i < n; i++) {
+            int64_t v = va_arg(args_copy, int64_t);
+            if (v > UINT32_MAX) fits_uint32 = false;
+            if (v > UINT16_MAX) fits_uint16 = false;
+            if (v > UINT8_MAX) fits_uint8 = false;
+        }
+        va_end(args_copy);
+        
+        if (fits_uint8) dtype = NC_UINT8;
+        else if (fits_uint16) dtype = NC_UINT16;
+        else if (fits_uint32) dtype = NC_UINT32;
+        else dtype = NC_INT64;
+    } else {
+        if (fits_int8) dtype = NC_INT8;
+        else if (fits_int16) dtype = NC_INT16;
+        else if (fits_int32) dtype = NC_INT32;
+        else dtype = NC_INT64;
+    }
+    
+    NCArray *arr = nc_empty(1, (int64_t[]){n}, dtype);
+    if (!arr) return NULL;
+    
+    va_start(args_copy, n);
+    for (int i = 0; i < n; i++) {
+        int64_t v = va_arg(args_copy, int64_t);
+        nc_set_value_from_double(arr, i, (double)v);
+    }
+    va_end(args_copy);
+    
+    return arr;
+}
+
+NCArray *nc_make_2d_auto(int64_t rows, int64_t cols, int n, ...) {
+    if (rows <= 0 || cols <= 0) {
+        return nc_empty(2, (int64_t[]){rows, cols}, NC_INT64);
+    }
+    
+    NCDataType dtype = NC_INT64;
+    bool all_positive = true;
+    bool fits_int32 = true;
+    bool fits_int16 = true;
+    bool fits_int8 = true;
+    
+    va_list args, args_copy;
+    va_start(args, n);
+    va_copy(args_copy, args);
+    
+    for (int i = 0; i < n; i++) {
+        int64_t v = va_arg(args, int64_t);
+        if (v < 0) all_positive = false;
+        if (v > INT32_MAX || v < INT32_MIN) fits_int32 = false;
+        if (v > INT16_MAX || v < INT16_MIN) fits_int16 = false;
+        if (v > INT8_MAX || v < INT8_MIN) fits_int8 = false;
+    }
+    va_end(args);
+    
+    if (all_positive) {
+        bool fits_uint32 = true;
+        bool fits_uint16 = true;
+        bool fits_uint8 = true;
+        
+        va_start(args_copy, n);
+        for (int i = 0; i < n; i++) {
+            int64_t v = va_arg(args_copy, int64_t);
+            if (v > UINT32_MAX) fits_uint32 = false;
+            if (v > UINT16_MAX) fits_uint16 = false;
+            if (v > UINT8_MAX) fits_uint8 = false;
+        }
+        va_end(args_copy);
+        
+        if (fits_uint8) dtype = NC_UINT8;
+        else if (fits_uint16) dtype = NC_UINT16;
+        else if (fits_uint32) dtype = NC_UINT32;
+        else dtype = NC_INT64;
+    } else {
+        if (fits_int8) dtype = NC_INT8;
+        else if (fits_int16) dtype = NC_INT16;
+        else if (fits_int32) dtype = NC_INT32;
+        else dtype = NC_INT64;
+    }
+    
+    NCArray *arr = nc_empty(2, (int64_t[]){rows, cols}, dtype);
+    if (!arr) return NULL;
+    
+    va_start(args_copy, n);
+    for (int i = 0; i < n; i++) {
+        int64_t v = va_arg(args_copy, int64_t);
+        nc_set_value_from_double(arr, i, (double)v);
+    }
+    va_end(args_copy);
+    
+    return arr;
+}
+
+NCArray *nc_make_1d_float_auto(int n, ...) {
+    if (n <= 0) return nc_empty(1, (int64_t[]){0}, NC_FLOAT32);
+    
+    NCDataType dtype = NC_FLOAT32;
+    
+    va_list args, args_copy;
+    va_start(args, n);
+    va_copy(args_copy, args);
+    
+    for (int i = 0; i < n; i++) {
+        double v = va_arg(args, double);
+        float fv = (float)v;
+        if (fabs(v - (double)fv) > 1e-6 * fabs(v > 0 ? v : -v)) {
+            dtype = NC_FLOAT64;
+            break;
+        }
+        if (fabs(v) > FLT_MAX || (fabs(v) < FLT_MIN && v != 0)) {
+            dtype = NC_FLOAT64;
+            break;
+        }
+    }
+    va_end(args);
+    
+    NCArray *arr = nc_empty(1, (int64_t[]){n}, dtype);
+    if (!arr) return NULL;
+    
+    va_start(args_copy, n);
+    for (int i = 0; i < n; i++) {
+        double v = va_arg(args_copy, double);
+        nc_set_value_from_double(arr, i, v);
+    }
+    va_end(args_copy);
+    
+    return arr;
+}
+
+NCArray *nc_make_2d_float_auto(int64_t rows, int64_t cols, int n, ...) {
+    if (rows <= 0 || cols <= 0) {
+        return nc_empty(2, (int64_t[]){rows, cols}, NC_FLOAT32);
+    }
+    
+    NCDataType dtype = NC_FLOAT32;
+    
+    va_list args, args_copy;
+    va_start(args, n);
+    va_copy(args_copy, args);
+    
+    for (int i = 0; i < n; i++) {
+        double v = va_arg(args, double);
+        float fv = (float)v;
+        if (fabs(v - (double)fv) > 1e-6 * fabs(v > 0 ? v : -v)) {
+            dtype = NC_FLOAT64;
+            break;
+        }
+        if (fabs(v) > FLT_MAX || (fabs(v) < FLT_MIN && v != 0)) {
+            dtype = NC_FLOAT64;
+            break;
+        }
+    }
+    va_end(args);
+    
+    NCArray *arr = nc_empty(2, (int64_t[]){rows, cols}, dtype);
+    if (!arr) return NULL;
+    
+    va_start(args_copy, n);
+    for (int i = 0; i < n; i++) {
+        double v = va_arg(args_copy, double);
+        nc_set_value_from_double(arr, i, v);
+    }
+    va_end(args_copy);
+    
+    return arr;
 }

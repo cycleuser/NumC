@@ -376,7 +376,39 @@ bool nc_content_equals(NCArray *a, NCArray *b);
 bool nc_shape_equals(NCArray *a, NCArray *b);
 
 #define nc_free(arr) nc_release(arr)
-#define nc_array(...) ((NCArray*){__VA_ARGS__})
+
+NCArray *nc_make_1d(NCDataType dtype, int64_t n, ...);
+NCArray *nc_make_2d(NCDataType dtype, int64_t rows, int64_t cols, ...);
+NCArray *nc_make_1d_auto(int n, ...);
+NCArray *nc_make_2d_auto(int64_t rows, int64_t cols, int n, ...);
+NCArray *nc_make_1d_float_auto(int n, ...);
+NCArray *nc_make_2d_float_auto(int64_t rows, int64_t cols, int n, ...);
+
+#define _NC_COUNT_ARGS(...) _NC_COUNT_ARGS_IMPL(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
+#define _NC_COUNT_ARGS_IMPL(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _N, ...) _N
+
+#define NC_INT(...) \
+    nc_make_1d_auto(_NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+
+#define NC_FLOAT(...) \
+    nc_make_1d_float_auto(_NC_COUNT_ARGS(__VA_ARGS__), (double)__VA_ARGS__)
+
+#define NC_INT2D(_rows, _cols, ...) \
+    nc_make_2d_auto(_rows, _cols, _NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+
+#define NC_FLOAT2D(_rows, _cols, ...) \
+    nc_make_2d_float_auto(_rows, _cols, _NC_COUNT_ARGS(__VA_ARGS__), (double)__VA_ARGS__)
+
+#define NC_INT8(...) nc_make_1d(NC_INT8, _NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+#define NC_INT16(...) nc_make_1d(NC_INT16, _NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+#define NC_INT32(...) nc_make_1d(NC_INT32, _NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+#define NC_INT64(...) nc_make_1d(NC_INT64, _NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+#define NC_UINT8(...) nc_make_1d(NC_UINT8, _NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+#define NC_UINT16(...) nc_make_1d(NC_UINT16, _NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+#define NC_UINT32(...) nc_make_1d(NC_UINT32, _NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+#define NC_UINT64(...) nc_make_1d(NC_UINT64, _NC_COUNT_ARGS(__VA_ARGS__), (int64_t)__VA_ARGS__)
+#define NC_FLOAT32(...) nc_make_1d(NC_FLOAT32, _NC_COUNT_ARGS(__VA_ARGS__), (double)__VA_ARGS__)
+#define NC_FLOAT64(...) nc_make_1d(NC_FLOAT64, _NC_COUNT_ARGS(__VA_ARGS__), (double)__VA_ARGS__)
 
 #ifdef __cplusplus
 }

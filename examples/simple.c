@@ -4,55 +4,90 @@
 int main() {
     printf("NumC v%s - NumPy-like library for C\n\n", nc_version());
     
-    int64_t shape1d[1] = {10};
-    NCArray *arr = nc_arange(0.0, 10.0, 1.0, NC_FLOAT64);
-    printf("1D Array (arange):\n");
-    nc_print(arr);
+    printf("=== Python-like Array Literals in C ===\n\n");
     
-    NCArray *reshaped;
-    nc_reshape(reshaped = nc_copy(arr), 2, (int64_t[]){2, 5});
-    printf("\nReshaped to 2x5:\n");
-    nc_print(reshaped);
+    printf("1D Integer Array (like [1, 2, 3, 4, 5]):\n");
+    NCArray *arr1 = NC_INT(1, 2, 3, 4, 5);
+    nc_print(arr1);
+    printf("  dtype: %s\n\n", nc_dtype_name(nc_dtype(arr1)));
     
-    NCArray *identity = nc_identity(4, NC_FLOAT64);
-    printf("\n4x4 Identity matrix:\n");
-    nc_print(identity);
+    printf("1D Float Array (auto float32/64 detection):\n");
+    NCArray *f1 = NC_FLOAT(1.0, 2.0, 3.0);
+    nc_print(f1);
+    printf("  dtype: %s (simple values fit in float32)\n\n", nc_dtype_name(nc_dtype(f1)));
     
-    NCArray *a = nc_random_randn(2, (int64_t[]){2, 2}, NC_FLOAT64);
-    NCArray *b = nc_random_randn(2, (int64_t[]){2, 2}, NC_FLOAT64);
-    printf("\nRandom matrices:\n");
-    nc_print(a);
-    nc_print(b);
+    NCArray *f2 = NC_FLOAT(1.123456789, 2.987654321);
+    nc_print(f2);
+    printf("  dtype: %s (precision requires float64)\n\n", nc_dtype_name(nc_dtype(f2)));
     
-    NCArray *sum = nc_add(a, b);
-    printf("\nSum:\n");
+    printf("2D Integer Array (like [[1,2,3],[4,5,6]]):\n");
+    NCArray *arr2d = NC_INT2D(2, 3, 1, 2, 3, 4, 5, 6);
+    nc_print(arr2d);
+    printf("  dtype: %s\n\n", nc_dtype_name(nc_dtype(arr2d)));
+    
+    printf("2D Float Array:\n");
+    NCArray *f2d = NC_FLOAT2D(2, 2, 1.0, 2.0, 3.0, 4.0);
+    nc_print(f2d);
+    printf("  dtype: %s\n\n", nc_dtype_name(nc_dtype(f2d)));
+    
+    printf("=== Type Detection Examples ===\n\n");
+    
+    NCArray *i1 = NC_INT(1, 2, 3);          
+    NCArray *i2 = NC_INT(100, 200, 300);   
+    NCArray *i3 = NC_INT(100000, 200000);   
+    NCArray *f3 = NC_FLOAT(1.5, 2.5, 3.5); 
+    NCArray *f4 = NC_FLOAT(1.23456789, 9.87654321);
+    
+    printf("  NC_INT(1,2,3)           -> %s\n", nc_dtype_name(nc_dtype(i1)));
+    printf("  NC_INT(100,200,300)     -> %s\n", nc_dtype_name(nc_dtype(i2)));
+    printf("  NC_INT(100000,200000)   -> %s\n", nc_dtype_name(nc_dtype(i3)));
+    printf("  NC_FLOAT(1.5,2.5,3.5)   -> %s\n", nc_dtype_name(nc_dtype(f3)));
+    printf("  NC_FLOAT(1.23...,9.87...) -> %s\n", nc_dtype_name(nc_dtype(f4)));
+    
+    printf("\n=== Explicit Type Arrays ===\n\n");
+    
+    NCArray *e1 = NC_INT32(1, 2, 3);
+    NCArray *e2 = NC_INT64(1, 2, 3);
+    NCArray *e3 = NC_FLOAT32(1.0, 2.0, 3.0);
+    NCArray *e4 = NC_FLOAT64(1.0, 2.0, 3.0);
+    
+    printf("  NC_INT32(1,2,3)    -> %s\n", nc_dtype_name(nc_dtype(e1)));
+    printf("  NC_INT64(1,2,3)   -> %s\n", nc_dtype_name(nc_dtype(e2)));
+    printf("  NC_FLOAT32(1,2,3) -> %s\n", nc_dtype_name(nc_dtype(e3)));
+    printf("  NC_FLOAT64(1,2,3) -> %s\n", nc_dtype_name(nc_dtype(e4)));
+    
+    printf("\n=== Operations ===\n");
+    
+    NCArray *sum = nc_add(arr1, arr1);
+    printf("\n[1,2,3,4,5] + [1,2,3,4,5]:\n");
     nc_print(sum);
     
-    NCArray *product = nc_matmul(a, b);
-    printf("\nMatrix product:\n");
+    NCArray *product = nc_matmul(arr2d, f2d);
+    printf("\n[[1,2,3],[4,5,6]] @ [[1,2],[3,4]]:\n");
     nc_print(product);
     
-    NCArray *mean = nc_mean(a, NULL, 0);
-    printf("\nMean of random matrix: %.6f\n", ((double*)mean->data)[0]);
+    NCArray *mean = nc_mean(arr1, NULL, 0);
+    printf("\nMean of [1,2,3,4,5]: %.2f\n", ((double*)mean->data)[0]);
     
-    printf("\nStatistics:\n");
-    NCArray *min_val = nc_min(a, NULL, 0);
-    NCArray *max_val = nc_max(a, NULL, 0);
-    printf("  Min: %.6f, Max: %.6f\n", 
-           ((double*)min_val->data)[0], 
-           ((double*)max_val->data)[0]);
-    
-    nc_release(arr);
-    nc_release(reshaped);
-    nc_release(identity);
-    nc_release(a);
-    nc_release(b);
+    printf("\n=== Memory Management ===\n");
+    nc_release(arr1);
+    nc_release(f1);
+    nc_release(f2);
+    nc_release(arr2d);
+    nc_release(f2d);
+    nc_release(i1);
+    nc_release(i2);
+    nc_release(i3);
+    nc_release(f3);
+    nc_release(f4);
+    nc_release(e1);
+    nc_release(e2);
+    nc_release(e3);
+    nc_release(e4);
     nc_release(sum);
     nc_release(product);
     nc_release(mean);
-    nc_release(min_val);
-    nc_release(max_val);
     
-    printf("\nMemory management test passed!\n");
+    printf("\nAll arrays released. Test passed!\n");
     return 0;
 }

@@ -6,6 +6,7 @@ A pure C implementation of a NumPy-like array computing library with elegant des
 
 - **N-dimensional arrays**: Full support for multi-dimensional arrays with arbitrary shapes
 - **Data types**: Support for bool, int8-64, uint8-64, float32/64, complex64/128
+- **Python-like array literals**: Create arrays using `NC_INT(1, 2, 3)` syntax with auto type detection
 - **Broadcasting**: Automatic broadcasting for operations between arrays of different shapes
 - **Mathematical functions**: Full set of trigonometric, exponential, logarithmic, and power functions
 - **Linear algebra**: Matrix multiplication, dot product, cross product, and more
@@ -37,14 +38,18 @@ make
 #include <stdio.h>
 
 int main() {
-    // Create arrays
-    NCArray *a = nc_arange(0.0, 10.0, 1.0, NC_FLOAT64);
-    NCArray *b = nc_ones(2, (int64_t[]){2, 3}, NC_FLOAT64);
+    // Create arrays using Python-like literal syntax
+    NCArray *a = NC_INT(1, 2, 3, 4, 5);       // like [1, 2, 3, 4, 5]
+    NCArray *b = NC_FLOAT(1.0, 2.0, 3.0);    // like [1.0, 2.0, 3.0]
+    NCArray *m = NC_INT2D(2, 3, 1, 2, 3, 4, 5, 6); // like [[1,2,3],[4,5,6]]
+    
+    // Traditional creation
+    NCArray *c = nc_arange(0.0, 10.0, 1.0, NC_FLOAT64);
     
     // Operations
-    NCArray *sum = nc_add(a, b);
-    NCArray *product = nc_matmul(a, b);
-    NCArray *mean = nc_mean(a, NULL, 0);
+    NCArray *sum = nc_add(a, a);
+    NCArray *product = nc_matmul(m, m);
+    NCArray *mean = nc_mean(c, NULL, 0);
     
     // Print results
     nc_print(sum);
@@ -53,12 +58,34 @@ int main() {
     // Memory management
     nc_release(a);
     nc_release(b);
+    nc_release(m);
+    nc_release(c);
     nc_release(sum);
     nc_release(product);
     nc_release(mean);
     
     return 0;
 }
+```
+
+### Python-like Array Literals
+
+NumC supports intuitive array creation syntax with automatic type detection:
+
+```c
+// 1D Arrays - auto type detection (int fits in smallest type, float is double)
+NC_INT(1, 2, 3)                    // auto: int8 (values fit)
+NC_INT(100, 200, 300)             // auto: int16
+NC_INT(100000, 200000)            // auto: int64
+NC_FLOAT(1.0, 2.0, 3.0)         // always double
+
+// 2D Arrays - specify rows and cols first
+NC_INT2D(2, 3, 1, 2, 3, 4, 5, 6)        // [[1,2,3],[4,5,6]]
+NC_FLOAT2D(2, 2, 1.0, 2.0, 3.0, 4.0)   // [[1,2],[3,4]]
+
+// Low-level functions for explicit type
+nc_make_1d(NC_INT64, 4, 10, 20, 30, 40)
+nc_make_2d(NC_FLOAT64, 2, 2, 1.1, 2.2, 3.3, 4.4)
 ```
 
 ## API Reference
