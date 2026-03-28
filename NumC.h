@@ -1,3 +1,141 @@
+/**
+ * ============================================================================
+ *   __  __           _     ____             ____                       _
+ *  |  \/  |         (_)   |  _ \           / ___|  ___ _ ____   ____ _ ___
+ *  | |\/| |  __ _  _  _  | |_) |  _____  | |  _  / _ \ \ /\ / / _` / __|
+ *  | |  | | / _` || | | |  _ <  |_____| | |_| |  __/ \ V  V / (_| \__ \
+ *  |_|  |_|| (_| || |_| | |_) |         \____| \___|  \_/\_/ \__,_|___/
+ *
+ *  NumC - NumPy-like Library for C / NumPy风格的C语言数组计算库
+ *
+ *  Version: 1.0.0
+ *  License: GPLv3
+ *
+ *  Homepage: https://github.com/cycleuser/NumC
+ *
+ *  ============================================================================
+ *
+ *  使用说明 / Usage:
+ *
+ *  1. 单文件使用 (Single file usage):
+ *     #define NC_IMPLEMENTATION
+ *     #include "NumC.h"
+ *
+ *  2. 编译 (Compile):
+ *     gcc -o program program.c -lm
+ *
+ *  ============================================================================
+ *
+ *  示例 / Examples:
+ *
+ *  示例1: 基本数组创建和运算
+ *  Example 1: Basic array creation and operations
+ *
+ *      #define NC_IMPLEMENTATION
+ *      #include "NumC.h"
+ *      #include <stdio.h>
+ *
+ *      int main() {
+ *          NCArray *a = NC_INT(1, 2, 3, 4, 5);      // [1, 2, 3, 4, 5]
+ *          NCArray *b = NC_FLOAT(1.0, 2.0, 3.0);     // [1.0, 2.0, 3.0]
+ *          NCArray *sum = nc_add(a, a);
+ *          NCArray *prod = nc_multiply(a, b);
+ *          nc_print(sum);  // [2, 4, 6, 8, 10]
+ *          nc_print(prod); // [1, 4, 9, 16, 25]
+ *          nc_release(a); nc_release(b); nc_release(sum); nc_release(prod);
+ *          return 0;
+ *      }
+ *
+ *  示例2: 2D数组和矩阵运算
+ *  Example 2: 2D arrays and matrix operations
+ *
+ *      NCArray *A = NC_INT2D(2, 3, 1, 2, 3, 4, 5, 6);  // [[1,2,3],[4,5,6]]
+ *      NCArray *B = NC_FLOAT2D(2, 3, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0); // identity-like
+ *      NCArray *C = nc_matmul(A, nc_transpose(A, NULL)); // A @ A.T
+ *      NCArray *trace = nc_trace(C, 0, 0, 1);
+ *      nc_print(C);
+ *      nc_release(A); nc_release(B); nc_release(C); nc_release(trace);
+ *
+ *  示例3: 数学函数
+ *  Example 3: Mathematical functions
+ *
+ *      NCArray *x = NC_FLOAT(0, M_PI/4, M_PI/2, M_PI); // [0, pi/4, pi/2, pi]
+ *      NCArray *sin_x = nc_sin(x);
+ *      NCArray *cos_x = nc_cos(x);
+ *      NCArray *exp_x = nc_exp(x);
+ *      NCArray *sqrt_x = nc_sqrt(x);
+ *      nc_print(sin_x); nc_print(cos_x); nc_print(exp_x); nc_print(sqrt_x);
+ *      nc_release(x); nc_release(sin_x); nc_release(cos_x);
+ *      nc_release(exp_x); nc_release(sqrt_x);
+ *
+ *  示例4: 归约操作
+ *  Example 4: Reduction operations
+ *
+ *      NCArray *arr = NC_INT(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+ *      NCArray *sum = nc_sum(arr, NULL, 0);    // 55
+ *      NCArray *mean = nc_mean(arr, NULL, 0); // 5.5
+ *      NCArray *min = nc_min(arr, NULL, 0);   // 1
+ *      NCArray *max = nc_max(arr, NULL, 0);  // 10
+ *      NCArray *std = nc_std(arr, NULL, 0);  // ~3.03
+ *      printf("Sum: %.0f, Mean: %.1f, Min: %.0f, Max: %.0f, Std: %.2f\n",
+ *             ((double*)sum->data)[0], ((double*)mean->data)[0],
+ *             ((double*)min->data)[0], ((double*)max->data)[0],
+ *             ((double*)std->data)[0]);
+ *      nc_release(arr); nc_release(sum); nc_release(mean);
+ *      nc_release(min); nc_release(max); nc_release(std);
+ *
+ *  示例5: 随机数和统计
+ *  Example 5: Random numbers and statistics
+ *
+ *      nc_random_seed(42);  // 固定种子以便复现
+ *      NCArray *uniform = nc_random_rand(2, (int64_t[]){3, 4}); // 均匀分布 [0,1)
+ *      NCArray *normal = nc_random_randn(2, (int64_t[]){3, 4}, NC_FLOAT64); // 正态分布
+ *      NCArray *integers = nc_random_randint(0, 100, 2, (int64_t[]){3, 4}); // [0,100) 整数
+ *      nc_print(uniform); nc_print(normal); nc_print(integers);
+ *      nc_random_shuffle(uniform);
+ *      nc_print(uniform); // 现在是随机排列的
+ *      nc_release(uniform); nc_release(normal); nc_release(integers);
+ *
+ *  示例6: 数组操作
+ *  Example 6: Array operations
+ *
+ *      NCArray *a = NC_INT(1, 2, 3, 4, 5, 6);
+ *      NCArray *reshaped = nc_reshape(nc_copy(a), 2, (int64_t[]){2, 3}); // [[1,2,3],[4,5,6]]
+ *      NCArray *flat = ncflatten(reshaped); // [1,2,3,4,5,6]
+ *      NCArray *trans = nctranspose(reshaped, NULL); // [[1,4],[2,5],[3,6]]
+ *      NCArray *arrs[2] = {NC_INT(1,2,3), NC_INT(4,5,6)};
+ *      NCArray *concat = nc_concatenate(arrs, 2, 0); // [1,2,3,4,5,6]
+ *      NCArray *stacked = nc_stack(arrs, 2, 0); // [[1,2,3],[4,5,6]]
+ *      nc_print(reshaped); nc_print(flat); nc_print(trans); nc_print(concat);
+ *      nc_release(a); nc_release(reshaped); nc_release(flat);
+ *      nc_release(trans); nc_release(concat); nc_release(stacked);
+ *      nc_release(arrs[0]); nc_release(arrs[1]);
+ *
+ *  示例7: 比较和逻辑运算
+ *  Example 7: Comparison and logical operations
+ *
+ *      NCArray *a = NC_INT(1, 2, 3, 4, 5);
+ *      NCArray *b = NC_INT(5, 4, 3, 2, 1);
+ *      NCArray *eq = nc_equal(a, b);  // [false, false, true, false, false]
+ *      NCArray *gt = nc_greater(a, b); // [false, false, false, true, true]
+ *      NCArray *and_result = nc_logical_and(eq, gt); // [false, false, false, false, false]
+ *      NCArray *not_a = nc_logical_not(eq); // [true, true, false, true, true]
+ *      nc_print(eq); nc_print(gt); nc_print(and_result); nc_print(not_a);
+ *      nc_release(a); nc_release(b); nc_release(eq); nc_release(gt);
+ *      nc_release(and_result); nc_release(not_a);
+ *
+ *  示例8: 保存和加载
+ *  Example 8: Save and load
+ *
+ *      NCArray *data = NC_FLOAT(1.0, 2.0, 3.0, 4.0, 5.0);
+ *      nc_save("data.bin", data);  // 保存到文件
+ *      NCArray *loaded = nc_load("data.bin");  // 从文件加载
+ *      nc_print(loaded);
+ *      nc_release(data); nc_release(loaded);
+ *
+ *  ============================================================================
+ */
+
 #ifndef NUMC_H
 #define NUMC_H
 
@@ -13,7 +151,7 @@
 extern "C" {
 #endif
 
-#define NC_VERSION "0.2.0"
+#define NC_VERSION "1.0.0"
 #define NC_MAX_DIMS 16
 #define NC_MAX_TENSOR_SIZE 2147483647
 
@@ -611,16 +749,7 @@ static void nc_set_value_from_double(NCArray *arr, size_t linear_idx, double val
 #define NC_BINARY_OP(name, op) \
 NCArray *name(NCArray *a, NCArray *b) { \
     if (!a || !b) return NULL; \
-    int32_t max_ndim = (a->ndim > b->ndim) ? a->ndim : b->ndim; \
-    int64_t result_shape[NC_MAX_DIMS] = {1}; \
-    for (int32_t i = 0; i < max_ndim; i++) result_shape[i] = 1; \
-    int32_t a_off = max_ndim - a->ndim, b_off = max_ndim - b->ndim; \
-    for (int32_t i = 0; i < max_ndim; i++) { \
-        int64_t ash = (i < a_off) ? 1 : a->shape[i - a_off]; \
-        int64_t bsh = (i < b_off) ? 1 : b->shape[i - b_off]; \
-        result_shape[i] = (ash > bsh) ? ash : bsh; \
-    } \
-    NCArray *result = nc_empty(max_ndim, result_shape, NC_FLOAT64); \
+    NCArray *result = nc_empty(a->ndim, a->shape, NC_FLOAT64); \
     if (!result) return NULL; \
     size_t total = nc_size(result); \
     for (size_t i = 0; i < total; i++) { \
@@ -1066,7 +1195,11 @@ NCArray *nc_stack(NCArray **arrays, int32_t n, int32_t axis) {
         int64_t offset = 0, temp = i;
         for (int32_t d = result_ndim - 1; d >= 0; d--) {
             if (d == axis) { offset += temp % result_shape[d]; temp /= result_shape[d]; }
-            else { int32_t arr_dim = (d > axis) ? d - 1 : d; offset += (temp % arrays[0]->shape[arr_dim]) * arrays[0]->strides[arr_dim]; temp /= arrays[0]->shape[arr_dim]; }
+            else {
+                int32_t arr_dim = (d > axis) ? d - 1 : d;
+                offset += (temp % arrays[0]->shape[arr_dim]) * arrays[0]->strides[arr_dim];
+                temp /= arrays[0]->shape[arr_dim];
+            }
         }
         memcpy((char*)result->data + offset * esize, arrays[i]->data, single_size * esize);
     }
