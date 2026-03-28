@@ -1264,6 +1264,248 @@ NCArray *nc_linalg_norm(NCArray *arr, const char *ord) {
     return result;
 }
 
+static NCDataType nc_fixed_best_dtype(int int_bits, int frac_bits, bool is_signed) {
+    int total_bits = int_bits + frac_bits;
+    if (is_signed) {
+        if (total_bits <= 8) return NC_INT8;
+        if (total_bits <= 16) return NC_INT16;
+        if (total_bits <= 32) return NC_INT32;
+        return NC_INT64;
+    } else {
+        if (total_bits <= 8) return NC_UINT8;
+        if (total_bits <= 16) return NC_UINT16;
+        if (total_bits <= 32) return NC_UINT32;
+        return NC_UINT64;
+    }
+}
+
+int64_t nc_fixed_from_double(double value, int frac_bits) {
+    double scaled = value * (double)(1LL << frac_bits);
+    if (scaled > 0) scaled += 0.5;
+    else scaled -= 0.5;
+    return (int64_t)scaled;
+}
+
+double nc_fixed_to_double(int64_t raw, int frac_bits) {
+    return (double)raw / (double)(1LL << frac_bits);
+}
+
+double nc_fixed_range_min(int int_bits, int frac_bits, bool is_signed) {
+    if (is_signed) {
+        int64_t min_val = -(1LL << (int_bits + frac_bits - 1));
+        return (double)min_val / (double)(1LL << frac_bits);
+    }
+    return 0.0;
+}
+
+double nc_fixed_range_max(int int_bits, int frac_bits, bool is_signed) {
+    if (is_signed) {
+        int64_t max_val = (1LL << (int_bits + frac_bits - 1)) - 1;
+        return (double)max_val / (double)(1LL << frac_bits);
+    } else {
+        uint64_t max_val = (1ULL << (int_bits + frac_bits)) - 1;
+        return (double)max_val / (double)(1LL << frac_bits);
+    }
+}
+
+NCArray *nc_fixed_create(int int_bits, int frac_bits, bool is_signed, int32_t ndim, const int64_t *shape) {
+    NCDataType dtype = nc_fixed_best_dtype(int_bits, frac_bits, is_signed);
+    NCArray *arr = nc_empty(ndim, shape, dtype);
+    return arr;
+}
+
+NCArray *nc_fixed_zeros(int int_bits, int frac_bits, bool is_signed, int32_t ndim, const int64_t *shape) {
+    NCDataType dtype = nc_fixed_best_dtype(int_bits, frac_bits, is_signed);
+    NCArray *arr = nc_zeros(ndim, shape, dtype);
+    return arr;
+}
+
+NCArray *nc_fixed_from_values(int int_bits, int frac_bits, bool is_signed, double *values, size_t count) {
+    NCDataType dtype = nc_fixed_best_dtype(int_bits, frac_bits, is_signed);
+    int64_t shape[1] = {(int64_t)count};
+    NCArray *arr = nc_empty(1, shape, dtype);
+    if (!arr) return NULL;
+    for (size_t i = 0; i < count; i++) {
+        int64_t raw = nc_fixed_from_double(values[i], frac_bits);
+        switch (dtype) {
+            case NC_INT8: ((int8_t*)arr->data)[i] = (int8_t)raw; break;
+            case NC_INT16: ((int16_t*)arr->data)[i] = (int16_t)raw; break;
+            case NC_INT32: ((int32_t*)arr->data)[i] = (int32_t)raw; break;
+            case NC_INT64: ((int64_t*)arr->data)[i] = raw; break;
+            case NC_UINT8: ((uint8_t*)arr->data)[i] = (uint8_t)raw; break;
+            case NC_UINT16: ((uint16_t*)arr->data)[i] = (uint16_t)raw; break;
+            case NC_UINT32: ((uint32_t*)arr->data)[i] = (uint32_t)raw; break;
+            case NC_UINT64: ((uint64_t*)arr->data)[i] = (uint64_t)raw; break;
+            default: break;
+        }
+    }
+    return arr;
+}
+
+NCArray *nc_fixed_arange(double start, double stop, double step, int int_bits, int frac_bits, bool is_signed) {
+    if (step == 0) return NULL;
+    int64_t n = (int64_t)ceil((stop - start) / step);
+    if (n < 0) n = 0;
+    int64_t shape[1] = {n};
+    NCDataType dtype = nc_fixed_best_dtype(int_bits, frac_bits, is_signed);
+    NCArray *arr = nc_empty(1, shape, dtype);
+    if (!arr) return NULL;
+    for (int64_t i = 0; i < n; i++) {
+        double val = start + i * step;
+        int64_t raw = nc_fixed_from_double(val, frac_bits);
+        switch (dtype) {
+            case NC_INT8: ((int8_t*)arr->data)[i] = (int8_t)raw; break;
+            case NC_INT16: ((int16_t*)arr->data)[i] = (int16_t)raw; break;
+            case NC_INT32: ((int32_t*)arr->data)[i] = (int32_t)raw; break;
+            case NC_INT64: ((int64_t*)arr->data)[i] = raw; break;
+            case NC_UINT8: ((uint8_t*)arr->data)[i] = (uint8_t)raw; break;
+            case NC_UINT16: ((uint16_t*)arr->data)[i] = (uint16_t)raw; break;
+            case NC_UINT32: ((uint32_t*)arr->data)[i] = (uint32_t)raw; break;
+            case NC_UINT64: ((uint64_t*)arr->data)[i] = (uint64_t)raw; break;
+            default: break;
+        }
+    }
+    return arr;
+}
+
+NCArray *nc_fixed_random_rand(int int_bits, int frac_bits, bool is_signed, int32_t ndim, const int64_t *shape) {
+    NCDataType dtype = nc_fixed_best_dtype(int_bits, frac_bits, is_signed);
+    NCArray *arr = nc_empty(ndim, shape, dtype);
+    if (!arr) return NULL;
+    size_t total = nc_size(arr);
+    int total_bits = int_bits + frac_bits;
+    if (is_signed) {
+        int64_t min_val = -(1LL << (total_bits - 1));
+        int64_t max_val = (1LL << (total_bits - 1)) - 1;
+        int64_t range = max_val - min_val + 1;
+        for (size_t i = 0; i < total; i++) {
+            int64_t raw = min_val + (int64_t)((double)range * rand() / (RAND_MAX + 1.0));
+            switch (dtype) {
+                case NC_INT8: ((int8_t*)arr->data)[i] = (int8_t)raw; break;
+                case NC_INT16: ((int16_t*)arr->data)[i] = (int16_t)raw; break;
+                case NC_INT32: ((int32_t*)arr->data)[i] = (int32_t)raw; break;
+                case NC_INT64: ((int64_t*)arr->data)[i] = raw; break;
+                default: break;
+            }
+        }
+    } else {
+        uint64_t max_val = (1ULL << total_bits) - 1;
+        uint64_t range = max_val + 1;
+        for (size_t i = 0; i < total; i++) {
+            uint64_t raw = (uint64_t)((double)range * rand() / (RAND_MAX + 1.0));
+            switch (dtype) {
+                case NC_UINT8: ((uint8_t*)arr->data)[i] = (uint8_t)raw; break;
+                case NC_UINT16: ((uint16_t*)arr->data)[i] = (uint16_t)raw; break;
+                case NC_UINT32: ((uint32_t*)arr->data)[i] = (uint32_t)raw; break;
+                case NC_UINT64: ((uint64_t*)arr->data)[i] = raw; break;
+                default: break;
+            }
+        }
+    }
+    return arr;
+}
+
+NCArray *nc_fixed_random_uniform(int int_bits, int frac_bits, bool is_signed, double min_val, double max_val, int32_t ndim, const int64_t *shape) {
+    NCDataType dtype = nc_fixed_best_dtype(int_bits, frac_bits, is_signed);
+    NCArray *arr = nc_empty(ndim, shape, dtype);
+    if (!arr) return NULL;
+    size_t total = nc_size(arr);
+    for (size_t i = 0; i < total; i++) {
+        double u = (double)rand() / RAND_MAX;
+        double val = min_val + u * (max_val - min_val);
+        int64_t raw = nc_fixed_from_double(val, frac_bits);
+        switch (dtype) {
+            case NC_INT8: ((int8_t*)arr->data)[i] = (int8_t)raw; break;
+            case NC_INT16: ((int16_t*)arr->data)[i] = (int16_t)raw; break;
+            case NC_INT32: ((int32_t*)arr->data)[i] = (int32_t)raw; break;
+            case NC_INT64: ((int64_t*)arr->data)[i] = raw; break;
+            case NC_UINT8: ((uint8_t*)arr->data)[i] = (uint8_t)raw; break;
+            case NC_UINT16: ((uint16_t*)arr->data)[i] = (uint16_t)raw; break;
+            case NC_UINT32: ((uint32_t*)arr->data)[i] = (uint32_t)raw; break;
+            case NC_UINT64: ((uint64_t*)arr->data)[i] = (uint64_t)raw; break;
+            default: break;
+        }
+    }
+    return arr;
+}
+
+double nc_fixed_get_value_as_double(NCArray *arr, size_t idx, int frac_bits) {
+    if (!arr) return 0.0;
+    int64_t raw = 0;
+    switch (arr->dtype) {
+        case NC_INT8: raw = ((int8_t*)arr->data)[idx]; break;
+        case NC_INT16: raw = ((int16_t*)arr->data)[idx]; break;
+        case NC_INT32: raw = ((int32_t*)arr->data)[idx]; break;
+        case NC_INT64: raw = ((int64_t*)arr->data)[idx]; break;
+        case NC_UINT8: raw = ((uint8_t*)arr->data)[idx]; break;
+        case NC_UINT16: raw = ((uint16_t*)arr->data)[idx]; break;
+        case NC_UINT32: raw = ((uint32_t*)arr->data)[idx]; break;
+        case NC_UINT64: raw = ((uint64_t*)arr->data)[idx]; break;
+        default: return 0.0;
+    }
+    return nc_fixed_to_double(raw, frac_bits);
+}
+
+void nc_fixed_print(NCArray *arr, int frac_bits) {
+    if (!arr) { printf("NULL array\n"); return; }
+    printf("fixed-point([");
+    size_t total = nc_size(arr);
+    for (size_t i = 0; i < total; i++) {
+        if (i > 0) printf(" ");
+        printf("%.6g", nc_fixed_get_value_as_double(arr, i, frac_bits));
+        if (i < total - 1) printf(",");
+    }
+    printf("], shape=%d, frac_bits=%d, dtype=%s)\n", arr->ndim, frac_bits, nc_dtype_name(arr->dtype));
+}
+
+NCArray *nc_fixed_add(NCArray *a, NCArray *b, int frac_bits) {
+    if (!a || !b) return NULL;
+    NCArray *result = nc_empty(a->ndim, a->shape, a->dtype);
+    if (!result) return NULL;
+    size_t total = nc_size(a);
+    for (size_t i = 0; i < total; i++) {
+        double av = nc_fixed_get_value_as_double(a, i, frac_bits);
+        double bv = nc_fixed_get_value_as_double(b, i, frac_bits);
+        int64_t raw = nc_fixed_from_double(av + bv, frac_bits);
+        switch (result->dtype) {
+            case NC_INT8: ((int8_t*)result->data)[i] = (int8_t)raw; break;
+            case NC_INT16: ((int16_t*)result->data)[i] = (int16_t)raw; break;
+            case NC_INT32: ((int32_t*)result->data)[i] = (int32_t)raw; break;
+            case NC_INT64: ((int64_t*)result->data)[i] = raw; break;
+            case NC_UINT8: ((uint8_t*)result->data)[i] = (uint8_t)raw; break;
+            case NC_UINT16: ((uint16_t*)result->data)[i] = (uint16_t)raw; break;
+            case NC_UINT32: ((uint32_t*)result->data)[i] = (uint32_t)raw; break;
+            case NC_UINT64: ((uint64_t*)result->data)[i] = (uint64_t)raw; break;
+            default: break;
+        }
+    }
+    return result;
+}
+
+NCArray *nc_fixed_multiply(NCArray *a, NCArray *b, int a_frac_bits, int b_frac_bits, int result_frac_bits, NCDataType result_dtype) {
+    if (!a || !b) return NULL;
+    NCArray *result = nc_empty(a->ndim, a->shape, result_dtype);
+    if (!result) return NULL;
+    size_t total = nc_size(a);
+    for (size_t i = 0; i < total; i++) {
+        double av = nc_fixed_get_value_as_double(a, i, a_frac_bits);
+        double bv = nc_fixed_get_value_as_double(b, i, b_frac_bits);
+        int64_t raw = nc_fixed_from_double(av * bv, result_frac_bits);
+        switch (result->dtype) {
+            case NC_INT8: ((int8_t*)result->data)[i] = (int8_t)raw; break;
+            case NC_INT16: ((int16_t*)result->data)[i] = (int16_t)raw; break;
+            case NC_INT32: ((int32_t*)result->data)[i] = (int32_t)raw; break;
+            case NC_INT64: ((int64_t*)result->data)[i] = raw; break;
+            case NC_UINT8: ((uint8_t*)result->data)[i] = (uint8_t)raw; break;
+            case NC_UINT16: ((uint16_t*)result->data)[i] = (uint16_t)raw; break;
+            case NC_UINT32: ((uint32_t*)result->data)[i] = (uint32_t)raw; break;
+            case NC_UINT64: ((uint64_t*)result->data)[i] = (uint64_t)raw; break;
+            default: break;
+        }
+    }
+    return result;
+}
+
 void nc_print(NCArray *arr) {
     if (!arr) { printf("NULL array\n"); return; }
     printf("array([");
