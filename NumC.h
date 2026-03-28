@@ -449,7 +449,7 @@ bool nc_is_contiguous(NCArray *arr) {
 }
 
 static NCArray *nc_array_create(void *data, int32_t ndim, const int64_t *shape, NCDataType dtype, bool owns_data) {
-    if (!shape || ndim < 0 || ndim > NC_MAX_DIMS) return NULL;
+    if ((!shape && ndim > 0) || ndim < 0 || ndim > NC_MAX_DIMS) return NULL;
     NCArray *arr = (NCArray *)calloc(1, sizeof(NCArray));
     if (!arr) return NULL;
     arr->ndim = ndim;
