@@ -5,17 +5,18 @@
 int main() {
     printf("=== Example 8: Random and Comparison ===\n\n");
     
-    nc_srand(42);
+    nc_random_seed(42);
     
-    NCArray *unif = nc_rand(5, NC_FLOAT64);
-    printf("nc_rand(5) - uniform [0,1]: "); nc_print(unif);
+    int64_t shape1[1] = {5};
+    NCArray *unif = nc_random_rand(1, shape1);
+    printf("nc_random_rand(5) - uniform [0,1]: "); nc_print(unif);
     
-    NCArray *norm = nc_randn(5, NC_FLOAT64);
-    printf("\nnc_randn(5) - normal: "); nc_print(norm);
+    NCArray *norm = nc_random_randn(1, shape1, NC_FLOAT64);
+    printf("\nnc_random_randn(5) - normal: "); nc_print(norm);
     
-    int64_t range_shape[1] = {10};
-    NCArray *randi = nc_randint(0, 100, 10, NC_INT32);
-    printf("\nnc_randint(0, 100, 10) - integers: "); nc_print(randi);
+    int64_t shape10[1] = {10};
+    NCArray *randi = nc_random_randint(0, 100, 1, shape10);
+    printf("\nnc_random_randint(0, 100, 10) - integers: "); nc_print(randi);
     
     NCArray *a = NC_INT(1, 2, 3, 4, 5);
     NCArray *b = NC_INT(1, 2, 6, 4, 5);
@@ -48,11 +49,6 @@ int main() {
     NCArray *logical_not = nc_logical_not(NC_INT(0, 1, 0, 1));
     printf("\nlogical_not([0,1,0,1]) = "); nc_print(logical_not);
     
-    NCArray *clipped = nc_clip(NC_FLOAT(1.0, 2.0, 3.0, 4.0, 5.0), 
-                                NC_FLOAT(2.0), 
-                                NC_FLOAT(4.0));
-    printf("\nclip([1,2,3,4,5], 2, 4) = "); nc_print(clipped);
-    
     nc_free(unif);
     nc_free(norm);
     nc_free(randi);
@@ -65,7 +61,6 @@ int main() {
     nc_free(logical_and);
     nc_free(logical_or);
     nc_free(logical_not);
-    nc_free(clipped);
     
     printf("\n[PASS] Example 8 completed successfully!\n");
     return 0;
